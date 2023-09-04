@@ -115,9 +115,12 @@ func (h Handler) tracker() {
 			}
 			recentReportStr, err := json.Marshal(recentReport)
 			if err != nil {
-				h.SendMessage(discord.ChannelID(snwflk), "Unable to get report from leetcode for user: "+user+"error: "+err.Error())
+				h.SendMessage(discord.ChannelID(snwflk), "Unable to set report from leetcode for user: "+user+"error: "+err.Error())
 			}
-			h.Model.SetUserReport(user, string(recentReportStr))
+			err = h.Model.SetUserReport(user, string(recentReportStr))
+			if err != nil {
+				h.SendMessage(discord.ChannelID(snwflk), "Unable to set report from leetcode for user: "+user+"error: "+err.Error())
+			}
 		} else {
 			var cachedReport service.RecentAcSubmissionResp
 			err := json.Unmarshal([]byte(report), &cachedReport)
@@ -144,6 +147,15 @@ func (h Handler) tracker() {
 			userInfo, err := service.GetUser(user)
 			if err != nil {
 				log.Println("Unable to get user information for the user: " + user)
+			}
+
+			recentReportStr, err := json.Marshal(recentReport)
+			if err != nil {
+				h.SendMessage(discord.ChannelID(snwflk), "Unable to set report from leetcode for user: "+user+"error: "+err.Error())
+			}
+			err = h.Model.SetUserReport(user, string(recentReportStr))
+			if err != nil {
+				h.SendMessage(discord.ChannelID(snwflk), "Unable to set report from leetcode for user: "+user+"error: "+err.Error())
 			}
 
 			h.SendEmbeds(discord.ChannelID(snwflk), discord.Embed{
