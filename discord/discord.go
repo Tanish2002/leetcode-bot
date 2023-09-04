@@ -140,8 +140,15 @@ func (h Handler) tracker() {
 					Inline: false,
 				})
 			}
+
+			userInfo, err := service.GetUser(user)
+			if err != nil {
+				log.Println("Unable to get user information for the user: " + user)
+			}
+
 			h.SendEmbeds(discord.ChannelID(snwflk), discord.Embed{
 				Title:       fmt.Sprintf("%s's New Submissions", user),
+				Image:       &discord.EmbedImage{URL: userInfo.Data.MatchedUser.Profile.UserAvatar},
 				Description: fmt.Sprintf("%s has done these questions in the last hour", user),
 				Fields:      embedFields,
 			})

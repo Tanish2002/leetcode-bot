@@ -81,6 +81,9 @@ type UserResp struct {
 	Data struct {
 		MatchedUser struct {
 			Username string `json:"username"`
+			Profile  struct {
+				UserAvatar string `json:"userAvatar"`
+			} `json:"profile"`
 		} `json:"matchedUser"`
 	} `json:"data"`
 }
