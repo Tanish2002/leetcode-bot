@@ -21,6 +21,9 @@ const GraphQLReqUser string = `
 query getUserProfile($username: String!) {
   matchedUser(username: $username) {
     username
+    profile {
+      userAvatar
+    }
   }
 }
 `
@@ -118,6 +121,7 @@ func GetUser(username string) (*UserResp, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var response UserResp
 	err = json.Unmarshal(body, &response)
 	if err != nil {

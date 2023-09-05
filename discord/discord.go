@@ -7,8 +7,6 @@ import (
 	"leetcode-bot/models"
 	"leetcode-bot/service"
 	"log"
-	"os"
-	"os/signal"
 
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
@@ -77,10 +75,7 @@ func (d DiscordService) SetupBot() error {
 	c.AddFunc("@hourly", h.tracker)
 	c.Start()
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer cancel()
-
-	if err := h.State.Connect(ctx); err != nil {
+	if err := h.State.Connect(context.Background()); err != nil {
 		return err
 	}
 	return nil
@@ -158,9 +153,12 @@ func (h Handler) tracker() {
 				h.SendMessage(discord.ChannelID(snwflk), "Unable to set report from leetcode for user: "+user+"error: "+err.Error())
 			}
 
+			log.Println("Avatar URL for user: " + user + "is, " + userInfo.Data.MatchedUser.Profile.UserAvatar)
 			h.SendEmbeds(discord.ChannelID(snwflk), discord.Embed{
 				Title:       fmt.Sprintf("%s's New Submissions", user),
-				Image:       &discord.EmbedImage{URL: userInfo.Data.MatchedUser.Profile.UserAvatar},
+				Thumbnail:   &discord.EmbedThumbnail{URL: userInfo.Data.MatchedUser.Profile.UserAvatar},
+				Author:      &discord.EmbedAuthor{Name: user, Icon: userInfo.Data.MatchedUser.Profile.UserAvatar},
+				Timestamp:   discord.NowTimestamp(),
 				Description: fmt.Sprintf("%s has done these questions in the last hour", user),
 				Fields:      embedFields,
 			})
