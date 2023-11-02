@@ -11,6 +11,13 @@ func main() {
 	newConfig := conf.NewConfig()
 	// Range over all users
 	for _, user := range newConfig.USERS {
+
+		//Check for valid user
+		userResp, err := newConfig.Service.GetUser(user)
+		if err != nil {
+			continue
+		}
+
 		// Get lastTimestamp for user
 		lastTimestamp, err := newConfig.Model.GetLatestTimestamp(user)
 		if err != nil && err.Error() != "Timestamp not found" {
@@ -50,6 +57,7 @@ func main() {
 		// Send Data to SQS
 		err = newConfig.Service.SendToSQS(service.SQSMessage{
 			Username:    user,
+			UserAvatar:  userResp.Data.MatchedUser.Profile.UserAvatar,
 			Submissions: &filteredUserSubmissions,
 		})
 		if err != nil {

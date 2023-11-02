@@ -16,6 +16,7 @@ type Service struct {
 
 type SQSMessage struct {
 	Username    string
+	UserAvatar  string
 	Submissions *RecentAcSubmissionResp
 }
 
