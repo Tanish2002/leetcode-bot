@@ -24,7 +24,7 @@ func main() {
 			log.Printf("Error while fetching user submissions for user: %s. Error: %v", user, err)
 			continue
 		}
-		var filteredUserSubmissions *service.RecentAcSubmissionResp
+		var filteredUserSubmissions service.RecentAcSubmissionResp
 		// Filter submissions so we don't send duplicate data
 		for _, submission := range userSubmissions.Data.RecentAcSubmissionList {
 
@@ -33,6 +33,11 @@ func main() {
 				break
 			}
 			filteredUserSubmissions.Data.RecentAcSubmissionList = append(filteredUserSubmissions.Data.RecentAcSubmissionList, submission)
+		}
+
+		// We have no new submissions
+		if len(filteredUserSubmissions.Data.RecentAcSubmissionList) == 0 {
+			continue
 		}
 
 		// Update the latestTimestamp
@@ -45,7 +50,7 @@ func main() {
 		// Send Data to SQS
 		err = newConfig.Service.SendToSQS(service.SQSMessage{
 			Username:    user,
-			Submissions: userSubmissions,
+			Submissions: &filteredUserSubmissions,
 		})
 		if err != nil {
 			// revert back to older timestamp
