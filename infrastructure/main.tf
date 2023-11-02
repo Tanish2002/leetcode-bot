@@ -112,7 +112,7 @@ resource "aws_lambda_function" "fetcher_lambda" {
     variables = {
       DYNAMODB_TABLE_NAME = aws_dynamodb_table.timestamp_table.name
       SQS_QUEUE_URL       = aws_sqs_queue.leetcode_bot_queue.url
-      USERS = "Tanish2002,Blank1367"
+      USERS = var.users
     }
   }
 }
@@ -143,8 +143,7 @@ resource "aws_lambda_function" "sender_lambda" {
 
   environment {
     variables = {
-      DISCORD_WEBHOOK_URL = "your_discord_webhook_url_here"
-      SQS_QUEUE_URL       = aws_sqs_queue.leetcode_bot_queue.url
+      DISCORD_WEBHOOK_URL = var.discord_webhook_url
     }
   }
 }
