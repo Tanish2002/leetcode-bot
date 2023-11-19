@@ -13,7 +13,13 @@ pub struct Configuration<'a> {
 impl Configuration<'_> {
     pub async fn new<'a>() -> Configuration<'a> {
         // Initialize Logger
-        env_logger::init();
+        tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::INFO)
+            // disable printing the name of the module in every log line.
+            .with_target(false)
+            // disabling time is handy because CloudWatch will add the ingestion time.
+            .without_time()
+            .init();
 
         let config = aws_config::load_from_env().await;
         let dynamo_client = dynamodb::Client::new(&config);

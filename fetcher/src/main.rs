@@ -3,7 +3,7 @@ mod models;
 mod service;
 
 use configuration::Configuration;
-use log::error;
+use tracing::error;
 
 #[tokio::main]
 async fn main() {

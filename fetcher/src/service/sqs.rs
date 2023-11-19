@@ -3,10 +3,9 @@ use std::fmt;
 use super::leetcode::submissions::RecentAcSubmissionResp;
 use aws_sdk_sqs::Client;
 use aws_sdk_sqs::Error as SQSError;
-use log::error;
-use log::info;
 use serde::Serialize;
 use serde_json::Error as SerdeError;
+use tracing::{error, info};
 
 pub struct SQS {
     sqs_url: String,
