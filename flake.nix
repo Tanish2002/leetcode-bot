@@ -27,7 +27,7 @@
             enable = true;
             channel = "nightly";
           };
-          packages = with pkgs; [pkg-config openssl];
+          packages = with pkgs; [pkg-config openssl cargo-lambda];
         })
       ];
     };
