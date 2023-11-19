@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "ap-south-1" # example region
+  region = "ap-south-1" 
 }
 
 # DynamoDB Table
@@ -86,14 +86,14 @@ resource "aws_iam_role_policy_attachment" "lambda_attach" {
 // build the binary for the lambda function in a specified path
 resource "null_resource" "fetcher_binary" {
   provisioner "local-exec" {
-    command = "cd ../fetcher && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GOFLAGS=-trimpath go build -mod=readonly -ldflags='-s -w'"
+    command = "cd ../fetcher && cargo build --release"
   }
 }
 
 # Archive File Fetcher Lambda
 data "archive_file" "fetcher_archive" {
   type        = "zip"
-  source_dir  = "${path.module}/../fetcher"
+  source_dir  = "${path.module}/../fetcher/target/release"
   output_path = "fetcher_function.zip"
   depends_on = [
     resource.null_resource.fetcher_binary
@@ -106,7 +106,7 @@ resource "aws_lambda_function" "fetcher_lambda" {
   function_name    = "leetcode_bot_fetcher"
   role             = aws_iam_role.lambda_role.arn
   handler          = "fetcher"
-  runtime          = "go1.x"
+  runtime          = "rust1.x"
 
   environment {
     variables = {
@@ -119,13 +119,13 @@ resource "aws_lambda_function" "fetcher_lambda" {
 
 resource "null_resource" "sender_binary" {
   provisioner "local-exec" {
-    command = "cd ../sender && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GOFLAGS=-trimpath go build -mod=readonly -ldflags='-s -w'"
+    command = "cd ../sender && cargo build --release"
   }
 }
 # Archive File Sender Lambda
 data "archive_file" "sender_archive" {
   type        = "zip"
-  source_dir  = "${path.module}/../sender"
+  source_dir  = "${path.module}/../sender/target/release"
   output_path = "sender_function.zip"
 
   depends_on = [
@@ -139,7 +139,7 @@ resource "aws_lambda_function" "sender_lambda" {
   function_name    = "leetcode_bot_sender"
   role             = aws_iam_role.lambda_role.arn
   handler          = "sender" # the file name without extension of the compiled Go binary inside the zip
-  runtime          = "go1.x"
+  runtime          = "rust1.x"
 
   environment {
     variables = {
