@@ -83,30 +83,22 @@ resource "aws_iam_role_policy_attachment" "lambda_attach" {
 }
 
 
-// build the binary for the lambda function in a specified path
+// build the fetcher binary and archive it 
 resource "null_resource" "fetcher_binary" {
   provisioner "local-exec" {
-    command = "cd ../fetcher && cargo build --release"
+    command = "cd ../fetcher && cargo lambda build --release --output-format zip"
   }
-}
-
-# Archive File Fetcher Lambda
-data "archive_file" "fetcher_archive" {
-  type        = "zip"
-  source_dir  = "${path.module}/../fetcher/target/release"
-  output_path = "fetcher_function.zip"
-  depends_on = [
-    resource.null_resource.fetcher_binary
-  ]
 }
 
 # Lambda Function for Fetching Data
 resource "aws_lambda_function" "fetcher_lambda" {
-  filename         = data.archive_file.fetcher_archive.output_path
+  depends_on = [null_resource.fetcher_binary]
+
+  filename         = "${path.module}/../fetcher/target/lambda/fetcher/bootstrap.zip"
   function_name    = "leetcode_bot_fetcher"
   role             = aws_iam_role.lambda_role.arn
-  handler          = "fetcher"
-  runtime          = "rust1.x"
+  handler          = "bootstrap"
+  runtime          = "provided.al2"
 
   environment {
     variables = {
@@ -117,29 +109,22 @@ resource "aws_lambda_function" "fetcher_lambda" {
   }
 }
 
+// build the sender binary and archive it 
 resource "null_resource" "sender_binary" {
   provisioner "local-exec" {
-    command = "cd ../sender && cargo build --release"
+    command = "cd ../sender && cargo lambda build --release --output-format zip"
   }
-}
-# Archive File Sender Lambda
-data "archive_file" "sender_archive" {
-  type        = "zip"
-  source_dir  = "${path.module}/../sender/target/release"
-  output_path = "sender_function.zip"
-
-  depends_on = [
-    resource.null_resource.sender_binary
-  ]
 }
 
 # Lambda Function for Sending Data to Discord
 resource "aws_lambda_function" "sender_lambda" {
-  filename         = data.archive_file.sender_archive.output_path
+  depends_on = [null_resource.sender_binary]
+
+  filename         = "${path.module}/../sender/target/lambda/sender/bootstrap.zip"
   function_name    = "leetcode_bot_sender"
   role             = aws_iam_role.lambda_role.arn
-  handler          = "sender" # the file name without extension of the compiled Go binary inside the zip
-  runtime          = "rust1.x"
+  handler          = "bootstrap" # the file name without extension of the compiled Go binary inside the zip
+  runtime          = "provided.al2"
 
   environment {
     variables = {
@@ -177,7 +162,6 @@ resource "aws_lambda_event_source_mapping" "sqs_sender_mapping" {
   function_name    = aws_lambda_function.sender_lambda.arn
 }
 
-# Note: You must have the Discord webhook URL stored securely, for example in AWS Secrets Manager, and the Lambda function must have the necessary permissions to retrieve it.
 
 # Outputs to verify resources creation
 output "fetcher_lambda_arn" {

@@ -37,12 +37,13 @@ impl Model {
             .send()
             .await?;
 
+        // If timestamp is not found "" is returned instead of a error. As this might be the first
+        // time user was added
         Ok(resp
             .item()
-            .and_then(|item| item.get("User"))
-            .unwrap()
-            .as_s()
-            .unwrap()
-            .to_string())
+            .and_then(|item| item.get("Timestamp"))
+            .and_then(|user| user.as_s().ok())
+            .map(|user_s| user_s.to_string())
+            .unwrap_or_else(|| "".to_string()))
     }
 }

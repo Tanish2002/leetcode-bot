@@ -27,7 +27,8 @@
             enable = true;
             channel = "nightly";
           };
-          packages = with pkgs; [pkg-config openssl cargo-lambda];
+          languages.terraform.enable = true;
+          packages = with pkgs; [cargo-lambda awscli2];
         })
       ];
     };
