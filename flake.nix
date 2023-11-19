@@ -1,10 +1,15 @@
 {
-  description = "LeetCode-Bot DevShell";
-
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-23.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.05";
     devenv.url = "github:cachix/devenv";
+    fenix.url = "github:nix-community/fenix";
   };
+
+  nixConfig = {
+    extra-trusted-public-keys = "devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw=";
+    extra-substituters = "https://devenv.cachix.org";
+  };
+
   outputs = {
     self,
     nixpkgs,
@@ -17,9 +22,12 @@
       inherit inputs pkgs;
       modules = [
         (_: {
-          languages.go.enable = true;
-          languages.terraform.enable = true;
-          packages = [pkgs.awscli2];
+          # This is your devenv configuration
+          languages.rust = {
+            enable = true;
+            channel = "nightly";
+          };
+          packages = with pkgs; [pkg-config openssl];
         })
       ];
     };
