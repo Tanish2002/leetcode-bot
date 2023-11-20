@@ -28,7 +28,7 @@
             channel = "nightly";
           };
           languages.terraform.enable = true;
-          packages = with pkgs; [cargo-lambda awscli2];
+          packages = with pkgs; [cargo-lambda awscli2 rustup]; #rustup needed by cargo-lambda
         })
       ];
     };
