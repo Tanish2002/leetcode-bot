@@ -2,22 +2,53 @@ provider "aws" {
   region = "ap-south-1" 
 }
 
-# DynamoDB Table
+# DynamoDB Table with improved structure
 resource "aws_dynamodb_table" "timestamp_table" {
   name         = "timestamp_table"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "User"
+  billing_mode = "PAY_PER_REQUEST" # More cost-effective for low-usage applications
+  hash_key     = "PK"              # Primary partition key
+  range_key    = "SK"              # Sort key for more flexible queries
 
   attribute {
-    name = "User"
+    name = "PK"
     type = "S"
   }
 
+  attribute {
+    name = "SK"
+    type = "S"
+  }
+
+  attribute {
+    name = "GSI1PK"
+    type = "S"
+  }
+
+  attribute {
+    name = "GSI1SK" 
+    type = "S"
+  }
+
+  # Global Secondary Index for efficient lookups
+  global_secondary_index {
+    name               = "GSI1"
+    hash_key           = "GSI1PK"
+    range_key          = "GSI1SK"
+    projection_type    = "ALL"
+  }
+
+  # TTL for automatic cleanup of old records
+  ttl {
+    attribute_name = "TTL"
+    enabled        = true
+  }
 }
 
-# SQS Queue
+# Standard SQS Queue (not FIFO to stay in free tier)
 resource "aws_sqs_queue" "leetcode_bot_queue" {
-  name = "lambda-queue"
+  name                      = "lambda-queue"
+  visibility_timeout_seconds = 60   
+  message_retention_seconds  = 86400 # 1 day (24 hours)
 }
 
 # IAM Role for Lambda Functions
@@ -48,10 +79,18 @@ resource "aws_iam_policy" "lambda_policy" {
         Action = [
           "dynamodb:UpdateItem",
           "dynamodb:GetItem",
-          "dynamodb:PutItem"
+          "dynamodb:PutItem",
+          "dynamodb:Query"
         ],
         Effect   = "Allow",
         Resource = aws_dynamodb_table.timestamp_table.arn
+      },
+      {
+        Action = [
+          "dynamodb:Query"
+        ],
+        Effect   = "Allow",
+        Resource = "${aws_dynamodb_table.timestamp_table.arn}/index/*"
       },
       {
         Action = [
@@ -82,15 +121,14 @@ resource "aws_iam_role_policy_attachment" "lambda_attach" {
   policy_arn = aws_iam_policy.lambda_policy.arn
 }
 
-
 // build the fetcher binary and archive it 
 resource "null_resource" "fetcher_binary" {
   provisioner "local-exec" {
-    command = "cd ../fetcher && cargo lambda build --release --output-format zip"
+    command = "cd ../fetcher && cargo lambda build --compiler cargo --release --output-format zip"
   }
 }
 
-# Lambda Function for Fetching Data
+# Lambda Function for Fetching Data with increased resources
 resource "aws_lambda_function" "fetcher_lambda" {
   depends_on = [null_resource.fetcher_binary]
 
@@ -98,7 +136,9 @@ resource "aws_lambda_function" "fetcher_lambda" {
   function_name    = "leetcode_bot_fetcher"
   role             = aws_iam_role.lambda_role.arn
   handler          = "bootstrap"
-  runtime          = "provided.al2"
+  runtime          = "provided.al2023"
+  timeout          = 30       
+  memory_size      = 256      
 
   environment {
     variables = {
@@ -112,7 +152,7 @@ resource "aws_lambda_function" "fetcher_lambda" {
 // build the sender binary and archive it 
 resource "null_resource" "sender_binary" {
   provisioner "local-exec" {
-    command = "cd ../sender && cargo lambda build --release --output-format zip"
+    command = "cd ../sender && cargo lambda build --compiler cargo --release --output-format zip"
   }
 }
 
@@ -123,8 +163,10 @@ resource "aws_lambda_function" "sender_lambda" {
   filename         = "${path.module}/../sender/target/lambda/sender/bootstrap.zip"
   function_name    = "leetcode_bot_sender"
   role             = aws_iam_role.lambda_role.arn
-  handler          = "bootstrap" # the file name without extension of the compiled Go binary inside the zip
-  runtime          = "provided.al2"
+  handler          = "bootstrap"
+  runtime          = "provided.al2023"
+  timeout          = 30       # Increase from default
+  memory_size      = 256      # Increase from default
 
   environment {
     variables = {
@@ -160,8 +202,8 @@ resource "aws_cloudwatch_event_target" "invoke_fetcher" {
 resource "aws_lambda_event_source_mapping" "sqs_sender_mapping" {
   event_source_arn = aws_sqs_queue.leetcode_bot_queue.arn
   function_name    = aws_lambda_function.sender_lambda.arn
+  batch_size       = 1  # Process one message at a time for better error handling
 }
-
 
 # Outputs to verify resources creation
 output "fetcher_lambda_arn" {

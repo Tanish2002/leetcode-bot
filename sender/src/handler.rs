@@ -28,6 +28,8 @@ pub struct SQSMessage {
     pub username: String,
     pub user_avatar: String,
     pub submissions: RecentAcSubmissionResp,
+    #[serde(default)]
+    pub processed_at: Option<String>, // Added for tracking when processed
 }
 
 impl Handler {
@@ -39,21 +41,51 @@ impl Handler {
         &self,
         event: LambdaEvent<SqsEventObj<SQSMessage>>,
     ) -> Result<(), Error> {
+        info!("Processing {} SQS messages", event.payload.records.len());
+
         for record in event.payload.records {
+            let message_id = record.message_id.unwrap_or_default();
+            let event_source = record.event_source.unwrap_or_default();
+
             info!(
-                "The message {} for event source {} = {:#?}",
-                record.message_id.unwrap_or_default(),
-                record.event_source.unwrap_or_default(),
-                record.body
+                "Processing message {} from event source {}",
+                message_id, event_source
             );
-            if let Err(e) = self.service.send_embed_to_discord(&record.body).await {
-                error!(
-                    "Error while sending Embed to discord for user {}. Error: {}",
-                    record.body.username, e
-                );
+
+            if record.body.submissions.recent_ac_submission_list.is_empty() {
+                info!("Skipping message with empty submission list");
                 continue;
             }
+
+            // Log the submissions we're about to process
+            for submission in &record.body.submissions.recent_ac_submission_list {
+                info!(
+                    "Processing submission: User={}, Problem='{}', Timestamp={}",
+                    record.body.username, submission.title, submission.timestamp
+                );
+            }
+
+            match self.service.send_embed_to_discord(&record.body).await {
+                Ok(_) => {
+                    info!(
+                        "Successfully sent Discord embed for user {}",
+                        record.body.username
+                    );
+                }
+                Err(e) => {
+                    error!(
+                        "Error sending Discord embed for user {}: {}",
+                        record.body.username, e
+                    );
+
+                    // Note: By default, returning an error from this function would cause
+                    // the Lambda runtime to fail this invocation and retry the message.
+                    // For this application, we'll log the error but continue processing
+                    // other messages rather than failing the entire batch.
+                }
+            }
         }
+
         Ok(())
     }
 }

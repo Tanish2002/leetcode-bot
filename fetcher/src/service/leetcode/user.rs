@@ -1,6 +1,7 @@
 use super::{Leetcode, LIMIT};
 use reqwest_graphql::GraphQLError;
 use serde::{Deserialize, Serialize};
+use tracing::{error, info};
 
 const USER_REQUEST: &str = r#"
 query getUserProfile($username: String!) {
@@ -39,15 +40,26 @@ struct UserVars {
 
 impl Leetcode<'_> {
     pub async fn get_user(&self, username: &String) -> Result<Data, GraphQLError> {
+        info!("Fetching user profile for: {}", username);
+
         let vars = UserVars {
             username: username.to_string(),
             limit: LIMIT.to_string(),
         };
 
-        let data = self
+        match self
             .gql_client
             .query_with_vars::<Data, UserVars>(USER_REQUEST, vars)
-            .await?;
-        Ok(data)
+            .await
+        {
+            Ok(data) => {
+                info!("Successfully retrieved profile for user: {}", username);
+                Ok(data)
+            }
+            Err(e) => {
+                error!("Error fetching user profile for {}: {}", username, e);
+                Err(e)
+            }
+        }
     }
 }

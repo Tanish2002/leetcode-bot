@@ -2,9 +2,9 @@ pub mod submissions;
 mod user;
 
 use reqwest_graphql::Client;
+use tracing::info;
 
 const API_ENDPOINT: &str = "https://leetcode.com/graphql";
-
 pub const LIMIT: &str = "15";
 
 pub struct Leetcode<'a> {
@@ -13,6 +13,7 @@ pub struct Leetcode<'a> {
 
 impl Leetcode<'_> {
     pub fn new() -> Self {
+        info!("Initializing LeetCode GraphQL client");
         let client = Client::new(API_ENDPOINT);
         Self { gql_client: client }
     }

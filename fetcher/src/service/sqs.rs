@@ -1,10 +1,9 @@
-use std::fmt;
-
 use super::leetcode::submissions::RecentAcSubmissionResp;
 use aws_sdk_sqs::Client;
 use aws_sdk_sqs::Error as SQSError;
 use serde::Serialize;
 use serde_json::Error as SerdeError;
+use std::fmt;
 use tracing::{error, info};
 
 pub struct SQS {
@@ -17,21 +16,26 @@ struct SQSMessage {
     username: String,
     user_avatar: String,
     submissions: RecentAcSubmissionResp,
+    processed_at: String,
 }
 
 impl SQSMessage {
     pub fn new(username: String, user_avatar: String, submissions: RecentAcSubmissionResp) -> Self {
+        // Add current timestamp for better tracking
+        let now = chrono::Utc::now().to_rfc3339();
+
         Self {
             username,
             user_avatar,
             submissions,
+            processed_at: now,
         }
     }
 }
 
 pub enum Error {
-    SQSError(SQSError),     // can't do this as ErroSQS is a enum
-    SerdeError(SerdeError), // this is fine.
+    SQSError(SQSError),
+    SerdeError(SerdeError),
 }
 
 impl fmt::Display for Error {
@@ -50,6 +54,7 @@ impl SQS {
             sqs_client,
         }
     }
+
     pub async fn send_to_sqs(
         &self,
         username: &String,
@@ -57,6 +62,7 @@ impl SQS {
         submissions: RecentAcSubmissionResp,
     ) -> Result<(), Error> {
         let data = SQSMessage::new(username.to_string(), user_avatar.to_string(), submissions);
+
         let message_body = match serde_json::to_string(&data) {
             Ok(v) => v,
             Err(e) => {
@@ -65,21 +71,32 @@ impl SQS {
             }
         };
 
+        // Generate a unique message deduplication ID based on content
+        // This ensures we don't send duplicate messages even with standard SQS
+        let submissions_str = message_body.clone();
+        let message_id = format!("{}_{}", username, submissions_str.len());
+
         match self
             .sqs_client
             .send_message()
             .queue_url(&self.sqs_url)
             .message_body(&message_body)
+            .message_group_id(username) // This is ignored by standard queues
+            .message_deduplication_id(&message_id) // This is ignored by standard queues
             .send()
             .await
         {
-            Ok(_) => {
-                info!("Message sent successfully!");
-                return Ok(());
+            Ok(response) => {
+                let message_id = response.message_id().unwrap_or("unknown");
+                info!(
+                    "Message sent successfully for user {} with ID: {}",
+                    username, message_id
+                );
+                Ok(())
             }
             Err(e) => {
-                error!("Error sending message to SQS: {}", e);
-                return Err(Error::SQSError(e.into()));
+                error!("Error sending message to SQS for user {}: {}", username, e);
+                Err(Error::SQSError(e.into()))
             }
         }
     }

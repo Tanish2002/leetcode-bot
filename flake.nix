@@ -1,36 +1,54 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-23.05";
-    devenv.url = "github:cachix/devenv";
-    fenix.url = "github:nix-community/fenix";
-  };
-
-  nixConfig = {
-    extra-trusted-public-keys = "devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw=";
-    extra-substituters = "https://devenv.cachix.org";
-  };
-
-  outputs = {
-    self,
-    nixpkgs,
-    devenv,
-    ...
-  } @ inputs: let
-    pkgs = nixpkgs.legacyPackages."x86_64-linux";
-  in {
-    devShell.x86_64-linux = devenv.lib.mkShell {
-      inherit inputs pkgs;
-      modules = [
-        (_: {
-          # This is your devenv configuration
-          languages.rust = {
-            enable = true;
-            channel = "nightly";
-          };
-          languages.terraform.enable = true;
-          packages = with pkgs; [cargo-lambda awscli2 rustup]; #rustup needed by cargo-lambda
-        })
-      ];
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
+    flake-utils.url = "github:numtide/flake-utils";
   };
+
+  outputs =
+    { self
+    , nixpkgs
+    , fenix
+    , flake-utils
+    , ...
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+        rustToolchain = fenix.packages.${system}.stable.withComponents [
+          "rustc"
+          "cargo"
+          "rustfmt"
+          "clippy"
+          "rust-analyzer"
+          "rust-src"
+        ];
+      in
+      {
+        devShells.default = pkgs.mkShell {
+          name = "leetcode-bot";
+
+          buildInputs = with pkgs; [
+            # Rust toolchain from fenix
+            rustToolchain
+
+            # AWS related tools
+            awscli2
+            cargo-lambda
+
+            # Terraform/OpenTofu
+            opentofu
+            terraform-ls
+
+            # Debugging tools
+            jq
+            curl
+          ];
+        };
+      }
+    );
 }
